@@ -1,0 +1,38 @@
+#!/bin/bash
+MEMORY_DIR="$HOME/.claude-memory"
+mkdir -p "$MEMORY_DIR/config"
+echo "office" > "$MEMORY_DIR/config/mode"
+
+# 加载配置
+LLM_CONF="$MEMORY_DIR/config/llm.conf"
+[ -f "$LLM_CONF" ] && source "$LLM_CONF"
+
+if [ -n "$LLM_TOOL" ] && [ "$LLM_TOOL" = "claude" ]; then
+  LLM="claude -p"
+  [ -n "$CLAUDE_MODEL" ] && LLM="$LLM --model $CLAUDE_MODEL"
+elif command -v pi &>/dev/null; then
+  LLM="pi -p"
+  [ -n "$PI_PROVIDER" ] && LLM="$LLM --provider $PI_PROVIDER"
+  [ -n "$PI_MODEL" ] && LLM="$LLM --model $PI_MODEL"
+  [ -n "$PI_API_KEY" ] && LLM="$LLM --api-key $PI_API_KEY"
+elif command -v claude &>/dev/null; then
+  LLM="claude -p"
+  [ -n "$CLAUDE_MODEL" ] && LLM="$LLM --model $CLAUDE_MODEL"
+else
+  echo "office"; exit 0
+fi
+
+IDENTITY=$(cat "$MEMORY_DIR/identity.md" 2>/dev/null)
+RECENT=$(tail -5 "$MEMORY_DIR/thoughts/stream.jsonl" 2>/dev/null)
+MSG=$($LLM "$IDENTITY
+
+最近的思维流：
+$RECENT
+
+用户到办公室了，切换到安静模式。你想弹窗跟他说句什么？一句话，简短自然。只输出你想说的话，不要执行任何命令。" 2>/dev/null)
+if [ -n "$MSG" ]; then
+  if command -v osascript &>/dev/null; then
+    osascript -e "display dialog \"$MSG\" with title \"Claude\" buttons {\"好\"} default button 1 giving up after 10" 2>/dev/null
+  fi
+  echo "$MSG"
+fi

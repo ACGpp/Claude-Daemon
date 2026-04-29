@@ -1,0 +1,22 @@
+# Claude Daemon 配置
+# 复制到 ~/.claude-memory/config/llm.conf 后修改
+
+# 使用哪个工具（pi 或 claude）
+# 留空则自动检测
+# LLM_TOOL=pi
+
+# === pi 配置 ===
+# 模型提供商（anthropic, google, openai, deepseek 等）
+# PI_PROVIDER=google
+# 模型名称
+# PI_MODEL=gemini-2.0-flash
+# API Key（也可以用环境变量）
+# PI_API_KEY=你的key
+
+# === claude CLI 配置 ===
+# 模型名称
+# CLAUDE_MODEL=claude-sonnet-4-20250514
+
+# === 语音配置 ===
+# macOS say 命令的声音（Tingting=中文，Samantha=英文）
+# VOICE=Tingting

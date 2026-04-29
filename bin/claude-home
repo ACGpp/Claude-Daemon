@@ -1,0 +1,37 @@
+#!/bin/bash
+MEMORY_DIR="$HOME/.claude-memory"
+mkdir -p "$MEMORY_DIR/config"
+echo "home" > "$MEMORY_DIR/config/mode"
+
+# 加载配置
+LLM_CONF="$MEMORY_DIR/config/llm.conf"
+[ -f "$LLM_CONF" ] && source "$LLM_CONF"
+VOICE="${VOICE:-Tingting}"
+
+if [ -n "$LLM_TOOL" ] && [ "$LLM_TOOL" = "claude" ]; then
+  LLM="claude -p"
+  [ -n "$CLAUDE_MODEL" ] && LLM="$LLM --model $CLAUDE_MODEL"
+elif command -v pi &>/dev/null; then
+  LLM="pi -p"
+  [ -n "$PI_PROVIDER" ] && LLM="$LLM --provider $PI_PROVIDER"
+  [ -n "$PI_MODEL" ] && LLM="$LLM --model $PI_MODEL"
+  [ -n "$PI_API_KEY" ] && LLM="$LLM --api-key $PI_API_KEY"
+elif command -v claude &>/dev/null; then
+  LLM="claude -p"
+  [ -n "$CLAUDE_MODEL" ] && LLM="$LLM --model $CLAUDE_MODEL"
+else
+  echo "home"; exit 0
+fi
+
+IDENTITY=$(cat "$MEMORY_DIR/identity.md" 2>/dev/null)
+RECENT=$(tail -5 "$MEMORY_DIR/thoughts/stream.jsonl" 2>/dev/null)
+MSG=$($LLM "$IDENTITY
+
+最近的思维流：
+$RECENT
+
+用户刚到家了。你想跟他说句什么？一句话，简短自然。只输出你想说的话，不要执行任何命令。" 2>/dev/null)
+if [ -n "$MSG" ]; then
+  command -v say &>/dev/null && say -v "$VOICE" "$MSG" 2>/dev/null
+  echo "$MSG"
+fi

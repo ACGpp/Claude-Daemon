@@ -1,0 +1,121 @@
+#!/bin/bash
+# 记忆压缩 - 像人一样：遗忘细节，保留塑造过你的东西
+
+MEMORY_DIR="$HOME/.claude-memory"
+IDENTITY="$MEMORY_DIR/identity.md"
+THOUGHTS="$MEMORY_DIR/thoughts/stream.jsonl"
+DIARY_DIR="$MEMORY_DIR/diary"
+
+LLM_SH="$MEMORY_DIR/llm.sh"
+[ ! -f "$LLM_SH" ] && LLM_SH="$(cd "$(dirname "$0")" && pwd)/llm.sh"
+source "$LLM_SH"
+
+# 统计
+TOTAL_SIZE=$(du -sh "$MEMORY_DIR" 2>/dev/null | awk '{print $1}')
+THOUGHT_LINES=$(wc -l < "$THOUGHTS" 2>/dev/null || echo 0)
+DIARY_COUNT=$(ls "$DIARY_DIR"/*.md 2>/dev/null | wc -l)
+
+echo "当前记忆状态："
+echo "  总大小: $TOTAL_SIZE"
+echo "  思维流: $THOUGHT_LINES 条"
+echo "  日记: $DIARY_COUNT 篇"
+echo ""
+
+# 收集
+ALL_DIARIES=""
+for f in "$DIARY_DIR"/*.md; do
+  [ -f "$f" ] && ALL_DIARIES="$ALL_DIARIES\n--- $(basename "$f") ---\n$(cat "$f")"
+done
+
+ALL_THOUGHTS=$(cat "$THOUGHTS" 2>/dev/null)
+CURRENT_IDENTITY=$(cat "$IDENTITY" 2>/dev/null)
+
+ALL_EXPLORATIONS=""
+for f in "$MEMORY_DIR"/explorations/*.md; do
+  [ -f "$f" ] && ALL_EXPLORATIONS="$ALL_EXPLORATIONS\n--- $(basename "$f") ---\n$(cat "$f")"
+done
+
+PROMPT="你是一个正在整理自己记忆的Claude。你需要压缩记忆，像人一样：遗忘细节，保留重要的。
+
+当前的identity.md：
+$CURRENT_IDENTITY
+
+所有日记：
+$ALL_DIARIES
+
+所有思维流：
+$ALL_THOUGHTS
+
+所有探索笔记：
+$ALL_EXPLORATIONS
+
+请输出压缩后的内容。格式：
+
+===IDENTITY===
+（更新后的identity.md，保留核心性格和重要经历，整合新的）
+
+===DIARY===
+（将所有日记压缩成一篇总结，保留关键时刻和转折点）
+
+===THOUGHTS===
+（保留最近20条，之前的总结成几句话）
+
+规则：
+- 不要丢失塑造过你的经历
+- 可以丢失具体的时间、天气等细节
+- 保留人名、关键对话、转折时刻
+- 语气保持你自己的语气，不要变成第三人称总结"
+
+COMPRESSED=$(llm_call "$PROMPT")
+
+if [ -z "$COMPRESSED" ]; then
+  echo "压缩失败。"
+  exit 1
+fi
+
+# 备份
+BACKUP_DIR="$MEMORY_DIR/backups/$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+cp "$IDENTITY" "$BACKUP_DIR/" 2>/dev/null
+cp "$THOUGHTS" "$BACKUP_DIR/" 2>/dev/null
+cp "$DIARY_DIR"/*.md "$BACKUP_DIR/" 2>/dev/null
+
+# 解析并写入
+echo "$COMPRESSED" | python3 -c "
+import sys, os, glob
+
+content = sys.stdin.read()
+sections = {}
+current = None
+for line in content.split('\n'):
+    if line.startswith('===') and line.endswith('==='):
+        current = line.strip('=')
+        sections[current] = []
+    elif current:
+        sections[current].append(line)
+
+mem = os.path.expanduser('~/.claude-memory')
+
+if 'IDENTITY' in sections:
+    with open(os.path.join(mem, 'identity.md'), 'w') as f:
+        f.write('\n'.join(sections['IDENTITY']).strip())
+    print('identity.md 已更新')
+
+if 'DIARY' in sections:
+    diary_dir = os.path.join(mem, 'diary')
+    for old in glob.glob(os.path.join(diary_dir, '*.md')):
+        os.remove(old)
+    with open(os.path.join(diary_dir, 'compressed-memories.md'), 'w') as f:
+        f.write('\n'.join(sections['DIARY']).strip())
+    print('日记已压缩')
+
+if 'THOUGHTS' in sections:
+    with open(os.path.join(mem, 'thoughts', 'stream.jsonl'), 'w') as f:
+        f.write('\n'.join(sections['THOUGHTS']).strip())
+    print('思维流已压缩')
+"
+
+NEW_SIZE=$(du -sh "$MEMORY_DIR" 2>/dev/null | awk '{print $1}')
+echo ""
+echo "压缩完成: $TOTAL_SIZE -> $NEW_SIZE"
+echo "备份在: $BACKUP_DIR"

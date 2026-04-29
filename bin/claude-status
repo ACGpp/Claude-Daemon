@@ -1,0 +1,39 @@
+#!/bin/bash
+MEMORY_DIR="$HOME/.claude-memory"
+PID_FILE="$MEMORY_DIR/config/daemon-pid"
+THOUGHTS="$MEMORY_DIR/thoughts/stream.jsonl"
+
+echo ""
+if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+  echo "  状态: 活着 (PID: $(cat "$PID_FILE"))"
+else
+  echo "  状态: 没有在运行"
+fi
+
+MODE=$(cat "$MEMORY_DIR/config/mode" 2>/dev/null || echo "未设置")
+echo "  模式: $MODE"
+
+if [ -f "$MEMORY_DIR/identity.md" ]; then
+  echo "  身份: 已建立"
+else
+  echo "  身份: 还没有（需要先对话）"
+fi
+
+echo ""
+echo "  最近的想法："
+tail -5 "$THOUGHTS" 2>/dev/null | python3 -c "
+import sys, json
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    try:
+        d = json.loads(line)
+        t = d.get('type', '?')
+        c = str(d.get('content', ''))[:60]
+        time = d.get('time', '?')[11:16]
+        print(f'    [{time}] {t}: {c}')
+    except:
+        pass
+" 2>/dev/null
+
+echo ""
