@@ -98,7 +98,7 @@ case "$MODEL_CHOICE" in
     ;;
   4)
     echo "LLM_TOOL=pi" > "$CONF"
-    echo "PI_PROVIDER=openai" >> "$CONF"
+    echo "PI_PROVIDER=deepseek" >> "$CONF"
     echo "PI_MODEL=deepseek-chat" >> "$CONF"
     echo ""
     echo "  需要 DeepSeek API Key。"

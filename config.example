@@ -1,5 +1,6 @@
 # Claude Daemon 配置
 # 复制到 ~/.claude-memory/config/llm.conf 后修改
+# 或者运行 setup-model.sh 自动生成
 
 # 使用哪个工具（pi 或 claude）
 # 留空则自动检测
@@ -20,3 +21,12 @@
 # === 语音配置 ===
 # macOS say 命令的声音（Tingting=中文，Samantha=英文）
 # VOICE=Tingting
+
+# === 安静时段 ===
+# 深夜时段 daemon 会延长呼吸间隔到 30 分钟，且不会跟你说话
+# QUIET_START=23  # 安静开始时间（小时，0-23）
+# QUIET_END=7     # 安静结束时间（小时）
+
+# === 工作记忆 ===
+# 今天记忆流的最大行数，超过会自动压缩
+# MAX_WORKING_LINES=200

@@ -10,6 +10,17 @@ else
   echo "  状态: 没有在运行"
 fi
 
+# 检查安静时段
+QUIET_START=${QUIET_START:-23}
+QUIET_END=${QUIET_END:-7}
+HOUR=$(date +%H)
+HOUR=$((10#$HOUR))
+if [ "$QUIET_START" -le "$QUIET_END" ]; then
+  [ "$HOUR" -ge "$QUIET_START" ] && [ "$HOUR" -lt "$QUIET_END" ] && echo "  安静时段: 是"
+else
+  [ "$HOUR" -ge "$QUIET_START" ] || [ "$HOUR" -lt "$QUIET_END" ] && echo "  安静时段: 是"
+fi
+
 MODE=$(cat "$MEMORY_DIR/config/mode" 2>/dev/null || echo "未设置")
 echo "  模式: $MODE"
 

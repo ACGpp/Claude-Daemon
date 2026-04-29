@@ -15,8 +15,10 @@ if [ "$1" = "init" ]; then
   if [ ! -d .git ]; then
     git init
     echo "daemon.log" > .gitignore
-    echo ".daemon-pid" >> .gitignore
+    echo "config/daemon-pid" >> .gitignore
     echo ".last-msg-time" >> .gitignore
+    echo "config/llm.conf" >> .gitignore
+    echo ".talk" >> .gitignore
     git add -A
     git commit -m "初次记忆"
   fi

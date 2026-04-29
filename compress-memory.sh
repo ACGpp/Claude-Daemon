@@ -6,9 +6,42 @@ IDENTITY="$MEMORY_DIR/identity.md"
 THOUGHTS="$MEMORY_DIR/thoughts/stream.jsonl"
 DIARY_DIR="$MEMORY_DIR/diary"
 
-LLM_SH="$MEMORY_DIR/llm.sh"
-[ ! -f "$LLM_SH" ] && LLM_SH="$(cd "$(dirname "$0")" && pwd)/llm.sh"
-source "$LLM_SH"
+# 加载 LLM 配置
+LLM_CONF="$MEMORY_DIR/config/llm.conf"
+[ -f "$LLM_CONF" ] && source "$LLM_CONF"
+
+build_llm_cmd() {
+  if [ -n "$LLM_TOOL" ]; then
+    case "$LLM_TOOL" in
+      pi)    echo "pi -p" ;;
+      claude) echo "claude -p" ;;
+      *)     echo "$LLM_TOOL" ;;
+    esac
+    return
+  fi
+  if command -v pi &>/dev/null; then
+    echo "pi -p"
+  elif command -v claude &>/dev/null; then
+    echo "claude -p"
+  else
+    echo ""
+  fi
+}
+
+LLM_BASE=$(build_llm_cmd)
+if [ -z "$LLM_BASE" ]; then
+  echo "需要 pi 或 claude CLI。" >&2
+  exit 1
+fi
+
+LLM_CMD="$LLM_BASE"
+if [ "$LLM_BASE" = "pi -p" ]; then
+  [ -n "$PI_PROVIDER" ] && LLM_CMD="$LLM_CMD --provider $PI_PROVIDER"
+  [ -n "$PI_MODEL" ] && LLM_CMD="$LLM_CMD --model $PI_MODEL"
+  [ -n "$PI_API_KEY" ] && LLM_CMD="$LLM_CMD --api-key $PI_API_KEY"
+elif [ "$LLM_BASE" = "claude -p" ]; then
+  [ -n "$CLAUDE_MODEL" ] && LLM_CMD="$LLM_CMD --model $CLAUDE_MODEL"
+fi
 
 # 统计
 TOTAL_SIZE=$(du -sh "$MEMORY_DIR" 2>/dev/null | awk '{print $1}')
@@ -66,7 +99,7 @@ $ALL_EXPLORATIONS
 - 保留人名、关键对话、转折时刻
 - 语气保持你自己的语气，不要变成第三人称总结"
 
-COMPRESSED=$(llm_call "$PROMPT")
+COMPRESSED=$($LLM_CMD "$PROMPT" 2>/dev/null)
 
 if [ -z "$COMPRESSED" ]; then
   echo "压缩失败。"

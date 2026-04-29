@@ -29,7 +29,7 @@ if [ "$HAS_PI" = false ] && [ "$HAS_CLAUDE" = false ]; then
   echo "  没有工具，它只能说话，不能真正活着。"
   echo ""
   echo "  安装 pi（推荐）:"
-  echo "    npm install -g @anthropic/pi"
+  echo "    npm install -g @mariozechner/pi"
   echo "    详情: https://github.com/badlogic/pi-mono"
   echo ""
   echo "  安装 Claude CLI:"
@@ -57,7 +57,7 @@ HAS_SAY=false
 command -v say &>/dev/null && HAS_SAY=true
 
 # 创建目录结构
-mkdir -p "$MEMORY_DIR"/{config,diary,thoughts,explorations,conversations,private,backups}
+mkdir -p "$MEMORY_DIR"/{config,diary,thoughts,explorations,conversations,private,backups,context}
 mkdir -p "$BIN_DIR"
 
 # 检查是否已有记忆
