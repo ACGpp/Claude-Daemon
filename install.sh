@@ -57,7 +57,7 @@ HAS_SAY=false
 command -v say &>/dev/null && HAS_SAY=true
 
 # 创建目录结构
-mkdir -p "$MEMORY_DIR"/{config,diary,thoughts,explorations,conversations,private,backups,context}
+mkdir -p "$MEMORY_DIR"/{config,diary,thoughts,explorations,conversations,private,backups,context,data/logs}
 mkdir -p "$BIN_DIR"
 
 # 检查是否已有记忆
@@ -83,7 +83,7 @@ if [ ! -f "$MEMORY_DIR/config/llm.conf" ]; then
 fi
 
 # 安装命令行工具
-for cmd in claude-home claude-office claude-stop claude-status; do
+for cmd in claude-daemon claude-home claude-office claude-stop claude-status; do
   cp "$SCRIPT_DIR/bin/$cmd" "$BIN_DIR/$cmd"
   chmod +x "$BIN_DIR/$cmd"
 done
@@ -162,4 +162,6 @@ echo "  启动后台进程:  $MEMORY_DIR/daemon.sh &"
 echo "  跟它聊天:      pi -c  或  claude -c"
 echo "  切换模式:      claude-home / claude-office"
 echo "  查看状态:      claude-status"
+echo "  管理进程:      claude-daemon start|stop|restart|status|logs"
+echo "  开机自启:      claude-daemon install-agent"
 echo ""
