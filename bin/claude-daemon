@@ -188,6 +188,26 @@ show_agent_status() {
   fi
 }
 
+send_test_notification() {
+  local MSG="${2:-Claude Daemon test notification}"
+  osascript - "$MSG" <<'APPLESCRIPT'
+on run argv
+  display notification (item 1 of argv) with title "Claude"
+end run
+APPLESCRIPT
+  echo "已发送测试通知"
+}
+
+send_test_dialog() {
+  local MSG="${2:-Claude Daemon test dialog}"
+  osascript - "$MSG" <<'APPLESCRIPT'
+on run argv
+  activate
+  display dialog (item 1 of argv) with title "Claude" default answer "" buttons {"不回复", "回复"} default button "回复" giving up after 30
+end run
+APPLESCRIPT
+}
+
 case "$1" in
   install-agent|install)
     install_agent
@@ -210,8 +230,14 @@ case "$1" in
   logs)
     show_logs "$@"
     ;;
+  notify)
+    send_test_notification "$@"
+    ;;
+  dialog)
+    send_test_dialog "$@"
+    ;;
   *)
-    echo "用法: claude-daemon {install-agent|uninstall-agent|start|stop|restart|status|logs [out|err] [行数]}"
+    echo "用法: claude-daemon {install-agent|uninstall-agent|start|stop|restart|status|logs [out|err] [行数]|notify [文本]|dialog [文本]}"
     exit 1
     ;;
 esac

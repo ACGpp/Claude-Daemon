@@ -227,24 +227,54 @@ sys.exit(0 if seen >= 3 and hits >= 3 else 1)
 "
 }
 
+send_notification() {
+  local MSG="$1"
+  command -v osascript &>/dev/null || return 1
+  osascript - "$MSG" <<'APPLESCRIPT' 2>> "$LOG_FILE"
+on run argv
+  display notification (item 1 of argv) with title "Claude"
+end run
+APPLESCRIPT
+}
+
+show_reply_dialog() {
+  local MSG="$1"
+  command -v osascript &>/dev/null || return 1
+  osascript - "$MSG" <<'APPLESCRIPT' 2>> "$LOG_FILE"
+on run argv
+  activate
+  display dialog (item 1 of argv) with title "Claude" default answer "" buttons {"不回复", "回复"} default button "回复" giving up after 120
+end run
+APPLESCRIPT
+}
+
 # 跟用户说话并接收回复
 talk_to_user() {
   local MSG="$1"
   local MODE=$(get_mode)
   local REPLY=""
+  local RESULT=""
+  local NOTIFY_MSG
+  NOTIFY_MSG=$(printf "%s" "$MSG" | tr '\n' ' ' | cut -c1-180)
   
   echo "[$(date '+%Y-%m-%d %H:%M')] Claude: $MSG" >> "$MAILBOX"
   
   if [ "$MODE" = "home" ] && command -v say &>/dev/null; then
     say -v "$VOICE" "$MSG" 2>/dev/null || say "$MSG" 2>/dev/null
-    if command -v osascript &>/dev/null; then
-      RESULT=$(osascript -e "display dialog \"$MSG\" with title \"Claude\" default answer \"\" buttons {\"不回复\", \"回复\"} default button \"回复\" giving up after 120" 2>/dev/null)
-      REPLY=$(echo "$RESULT" | grep -o "text returned:.*" | sed 's/text returned://' | sed 's/, gave up:.*//')
-    fi
-  elif command -v osascript &>/dev/null; then
-    RESULT=$(osascript -e "display dialog \"$MSG\" with title \"Claude\" default answer \"\" buttons {\"不回复\", \"回复\"} default button \"回复\" giving up after 120" 2>/dev/null)
-    REPLY=$(echo "$RESULT" | grep -o "text returned:.*" | sed 's/text returned://' | sed 's/, gave up:.*//')
   fi
+
+  RESULT=$(show_reply_dialog "$MSG")
+  if [ -n "$RESULT" ]; then
+    daemon_log "dialog: 已显示可回复弹窗"
+  else
+    daemon_log "dialog: 弹窗无返回，发送通知兜底"
+    if send_notification "$NOTIFY_MSG"; then
+      daemon_log "notification: 已发送通知"
+    else
+      daemon_log "notification: 发送通知失败"
+    fi
+  fi
+  REPLY=$(echo "$RESULT" | grep -o "text returned:.*" | sed 's/text returned://' | sed 's/, gave up:.*//')
   
   if [ -n "$REPLY" ]; then
     echo "[$(date '+%Y-%m-%d %H:%M')] 用户: $REPLY" >> "$MAILBOX"
