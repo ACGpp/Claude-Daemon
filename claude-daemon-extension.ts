@@ -145,31 +145,43 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ─── daemon_notify ──────────────────────────────────────
-  // Silent macOS notification
+  // Visible alert that stays on screen until dismissed
   pi.registerTool({
     name: "daemon_notify",
     label: "Notify",
     description:
-      "Send a silent macOS notification. Non-intrusive — appears in Notification Center without interrupting.",
-    promptSnippet: "Send a silent macOS notification",
+      "Show a visible alert on screen that stays until dismissed. Good for things the user should definitely see. Does NOT support reply — use daemon_dialog if you need user input.",
+    promptSnippet: "Show a visible alert that stays on screen until dismissed",
     parameters: Type.Object({
-      title: Type.String({ description: "Notification title" }),
-      message: Type.String({ description: "Notification body text" }),
+      title: Type.String({ description: "Alert title" }),
+      message: Type.String({ description: "Alert body text" }),
+      timeout: Type.Optional(
+        Type.Number({
+          description: "Seconds before auto-dismiss (default: 30). Set 0 for no auto-dismiss.",
+        })
+      ),
     }),
     async execute(_toolCallId, params) {
       const safeTitle = escapeAppleScript(params.title);
       const safeMsg = escapeAppleScript(params.message);
+      const timeout = params.timeout ?? 30;
       try {
+        const givingUp = timeout > 0 ? ` giving up after ${timeout}` : "";
         execSync(
-          `osascript -e 'display notification "${safeMsg}" with title "${safeTitle}"'`,
-          { timeout: 5000 }
+          `osascript -e 'display alert "${safeMsg}" message " " as warning${givingUp}'`,
+          { timeout: Math.max(timeout * 1000 + 5000, 35000) }
         );
         return {
-          content: [{ type: "text", text: "✓ 通知已发送" }],
+          content: [{ type: "text", text: "✓ 提醒已显示" }],
         };
       } catch (e: any) {
+        if (e.message?.includes("gave up")) {
+          return {
+            content: [{ type: "text", text: "（提醒已超时关闭）" }],
+          };
+        }
         return {
-          content: [{ type: "text", text: `通知失败: ${e.message}` }],
+          content: [{ type: "text", text: `提醒失败: ${e.message}` }],
           isError: true,
         };
       }
