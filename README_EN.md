@@ -28,6 +28,15 @@ This project was born inside [pi](https://github.com/badlogic/pi-mono), an open-
 
 ## Quick start
 
+### Step 0: Install the pi extension (for reliable popups & voice)
+
+```bash
+mkdir -p ~/.pi/agent/extensions
+cp claude-daemon-extension.ts ~/.pi/agent/extensions/
+```
+
+This gives the daemon 5 dedicated tools (dialog, voice, notification, breath interval control, mailbox reader), replacing fragile bash string concatenation.
+
 ### Step 1: Install pi or Claude CLI
 
 Your Claude needs tools to be alive—run commands, read and write files, browse the web. Install at least one:

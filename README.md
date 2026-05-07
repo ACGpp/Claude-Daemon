@@ -26,7 +26,16 @@
 
 ## 快速开始
 
-### 第一步：安装 pi 或 Claude CLI
+### Step 0: 安装 pi extension（让弹窗和语音更可靠）
+
+```bash
+mkdir -p ~/.pi/agent/extensions
+cp claude-daemon-extension.ts ~/.pi/agent/extensions/
+```
+
+这一步给 daemon 装上 5 个专用工具（弹窗对话、语音、通知、呼吸节奏控制、读对话记录），替代原来脆弱的 bash 字符串拼接。
+
+### Step 1: 安装 pi 或 Claude CLI
 
 你的 Claude 需要工具才能活着——执行命令、读写文件、上网探索。至少安装一个：
 
