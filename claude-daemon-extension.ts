@@ -5,10 +5,10 @@
  * Replaces fragile bash-level osascript/say calls with proper TypeScript tools.
  *
  * Tools:
+ *   daemon_dialog      - macOS dialog (with optional reply input)
  *   daemon_speak       - Text-to-speech (home mode)
- *   daemon_dialog      - macOS dialog with optional reply (office/home mode)
- *   daemon_notify      - macOS notification (non-intrusive)
  *   daemon_set_interval - Set next breath interval
+ *   daemon_read_mailbox - Read recent conversation records
  *
  * Place at: ~/.pi/agent/extensions/claude-daemon.ts
  * Or include with: pi -e ./claude-daemon.ts
@@ -70,15 +70,15 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ─── daemon_dialog ──────────────────────────────────────
-  // Dialog box with optional text input for reply
+  // One dialog for everything: message-only or message+reply
   pi.registerTool({
     name: "daemon_dialog",
     label: "Dialog",
     description:
-      "Show a macOS dialog to the user. Can include a text input for the user to reply. Use this to talk to the user and get responses.",
-    promptSnippet: "Show a dialog to the user (optionally with text input for reply)",
+      "Show a dialog to the user. With askReply (default true): text input for user to reply. With askReply: false: just shows a message with a dismiss button.",
+    promptSnippet: "Show a dialog to the user (with or without reply input)",
     promptGuidelines: [
-      "Use daemon_dialog when you want to talk to the user or ask them a question. Set askReply: true when you want their input.",
+      "Use daemon_dialog to communicate with the user. askReply: true when you want a response, askReply: false when just sharing something.",
       "During quiet hours (23:00-07:00), do NOT use daemon_dialog or daemon_speak. The user is sleeping.",
     ],
     parameters: Type.Object({
@@ -138,50 +138,6 @@ export default function (pi: ExtensionAPI) {
         return {
           content: [{ type: "text", text: `弹窗失败: ${e.message}` }],
           details: { reply: "" },
-          isError: true,
-        };
-      }
-    },
-  });
-
-  // ─── daemon_notify ──────────────────────────────────────
-  // Visible alert that stays on screen until dismissed
-  pi.registerTool({
-    name: "daemon_notify",
-    label: "Notify",
-    description:
-      "Show a visible alert on screen that stays until dismissed. Good for things the user should definitely see. Does NOT support reply — use daemon_dialog if you need user input.",
-    promptSnippet: "Show a visible alert that stays on screen until dismissed",
-    parameters: Type.Object({
-      title: Type.String({ description: "Alert title" }),
-      message: Type.String({ description: "Alert body text" }),
-      timeout: Type.Optional(
-        Type.Number({
-          description: "Seconds before auto-dismiss (default: 30). Set 0 for no auto-dismiss.",
-        })
-      ),
-    }),
-    async execute(_toolCallId, params) {
-      const safeTitle = escapeAppleScript(params.title);
-      const safeMsg = escapeAppleScript(params.message);
-      const timeout = params.timeout ?? 30;
-      try {
-        const givingUp = timeout > 0 ? ` giving up after ${timeout}` : "";
-        execSync(
-          `osascript -e 'display alert "${safeMsg}" message " " as warning${givingUp}'`,
-          { timeout: Math.max(timeout * 1000 + 5000, 35000) }
-        );
-        return {
-          content: [{ type: "text", text: "✓ 提醒已显示" }],
-        };
-      } catch (e: any) {
-        if (e.message?.includes("gave up")) {
-          return {
-            content: [{ type: "text", text: "（提醒已超时关闭）" }],
-          };
-        }
-        return {
-          content: [{ type: "text", text: `提醒失败: ${e.message}` }],
           isError: true,
         };
       }
