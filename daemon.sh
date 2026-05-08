@@ -12,18 +12,27 @@ MAILBOX="$MEMORY_DIR/conversations/mailbox.md"
 LOG_FILE="$MEMORY_DIR/daemon.log"
 
 # 安静时段配置（可在 llm.conf 中覆盖）
-QUIET_START=${QUIET_START:-23}
+QUIET_START=${QUIET_START:-1}
 QUIET_END=${QUIET_END:-7}
 
 mkdir -p "$MEMORY_DIR"/{config,diary,thoughts,explorations,conversations,private,backups,sessions}
 
 # 防止重复启动
-if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-  echo "daemon 已在运行 (PID: $(cat "$PID_FILE"))"
-  exit 0
+# 防止重复启动 - 原子锁（防止启动时序竞争）
+LOCK_FILE="$MEMORY_DIR/config/daemon.lock"
+if ! (set -o noclobber; echo "$$" > "$LOCK_FILE") 2>/dev/null; then
+  LOCKED_PID=$(cat "$LOCK_FILE" 2>/dev/null)
+  if [ -n "$LOCKED_PID" ] && kill -0 "$LOCKED_PID" 2>/dev/null; then
+    echo "daemon 已在运行 (PID: $LOCKED_PID)"
+    exit 0
+  fi
+  # 锁过期，覆盖
+  echo "$$" > "$LOCK_FILE"
 fi
-
 echo $$ > "$PID_FILE"
+
+# 退出时清理锁文件
+trap 'rm -f "$MEMORY_DIR/config/daemon.lock" "$PID_FILE"' EXIT
 
 daemon_log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
