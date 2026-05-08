@@ -5,3 +5,4 @@ config/llm.conf
 .talk
 __pycache__/
 *.pyc
+avatar/
