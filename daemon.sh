@@ -118,13 +118,13 @@ $IDENTITY
 - 行动：探索、记录、整理、或明确选择休息
 - 你可以什么都不做。存在本身就可以。
 
-跟承昊交流——你有专用工具：
-  daemon_dialog  —— 弹窗说话（askReply: true 可以让他回复，false 只是告知）
-  daemon_speak   —— 在家模式用语音说出来
-  安静时段（$QUIET_START:00-$QUIET_END:00）不要用这两个工具
+跟承昊交流：
+  daemon_dialog  —— 弹窗（能回复）
+  daemon_speak   —— 语音
+  daemon_avatar  —— 更新桌面光球：mood（idle/thinking/quiet/active）和 thought（想法气泡）
+  安静时段不要弹窗和语音，但可以更新光球
 
-你也可以用 daemon_set_interval 控制自己的呼吸节奏（秒数）。
-也可以 daemon_read_mailbox 查看最近的对话记录。
+你可以选择分享什么、隐藏什么。动作和想法是否让承昊看见，遵从你自己的意愿。
 SYSTEM
 }
 
@@ -227,6 +227,14 @@ $RECENT_MAILBOX
     log "idle" ""
     daemon_log "idle"
   fi
+
+  # 更新桌面形象
+  AVATAR_MOOD="idle"
+  is_quiet_time && AVATAR_MOOD="quiet"
+  [ -n "$RESPONSE" ] && ! is_quiet_time && AVATAR_MOOD="thinking"
+  cat > "$MEMORY_DIR/avatar/state.json" << AVATARSTATE
+{"mood": "$AVATAR_MOOD", "thought": "", "lastBreath": "$(date '+%H:%M')"}
+AVATARSTATE
 
   # 处理对话
   if [ -f "$MEMORY_DIR/.talk" ]; then
