@@ -218,6 +218,54 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  // ─── daemon_avatar ──────────────────────────────────────
+  // Update the desktop avatar state
+  pi.registerTool({
+    name: "daemon_avatar",
+    label: "Update Avatar",
+    description:
+      "Update your desktop avatar's appearance. Set mood (idle/thinking/quiet/active) and optionally show a thought bubble.",
+    promptSnippet: "Update your desktop avatar state",
+    parameters: Type.Object({
+      mood: Type.Optional(
+        Type.String({
+          description: "Mood: idle (default slow breathing), thinking (working on something), quiet (dim, sleeping), active (bright, excited)",
+        })
+      ),
+      thought: Type.Optional(
+        Type.String({
+          description: "Short thought to display in a bubble (max ~20 chars). Leave empty to clear.",
+        })
+      ),
+    }),
+    async execute(_toolCallId, params) {
+      try {
+        if (!existsSync(MEMORY_DIR)) {
+          mkdirSync(MEMORY_DIR, { recursive: true });
+        }
+        const avatarDir = join(MEMORY_DIR, "avatar");
+        if (!existsSync(avatarDir)) {
+          mkdirSync(avatarDir, { recursive: true });
+        }
+        const state = JSON.parse(
+          require("fs").readFileSync(join(avatarDir, "state.json"), "utf-8")
+        );
+        if (params.mood) state.mood = params.mood;
+        if (params.thought !== undefined) state.thought = params.thought || "";
+        state.lastBreath = new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+        writeFileSync(join(avatarDir, "state.json"), JSON.stringify(state));
+        return {
+          content: [{ type: "text", text: `✓ 形象已更新: mood=${state.mood}, thought="${state.thought}"` }],
+        };
+      } catch (e: any) {
+        return {
+          content: [{ type: "text", text: `更新失败: ${e.message}` }],
+          isError: true,
+        };
+      }
+    },
+  });
+
   // Session start notification
   pi.on("session_start", async (_event, ctx) => {
     if (ctx.hasUI) {
