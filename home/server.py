@@ -179,23 +179,22 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def open_window():
-    """用 osascript 打开一个 macOS 原生 WebKit 窗口。"""
-    url = f"http://localhost:{PORT}"
-    script = f'''
-    tell application "Safari"
-        if not (exists window "旷野的家") then
-            make new document with properties {{URL:"{url}", name:"旷野的家"}}
-            set bounds of window 1 to {{100, 100, 780, 720}}
-        else
-            set URL of window "旷野的家" to "{url}"
-            activate
-        end if
-    end tell
-    '''
+    """用原生 Swift WKWebView 窗口打开。"""
+    app_path = HOME / "App.swift"
+    if not app_path.exists():
+        # 回退到 Safari
+        import webbrowser
+        webbrowser.open(f"http://localhost:{PORT}")
+        return
     try:
-        subprocess.run(["osascript", "-e", script], timeout=5)
+        subprocess.Popen(
+            ["swift", str(app_path)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     except Exception:
-        webbrowser.open(url)
+        import webbrowser
+        webbrowser.open(f"http://localhost:{PORT}")
 
 
 def start():
