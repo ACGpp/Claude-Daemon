@@ -24,6 +24,7 @@ window.appearance = NSAppearance(named: .darkAqua)
 let webView = WKWebView(frame: window.contentView!.bounds)
 webView.autoresizingMask = [.width, .height]
 webView.setValue(false, forKey: "drawsBackground")
+webView.allowsBackForwardNavigationGestures = false
 window.contentView?.addSubview(webView)
 
 let url = URL(string: "http://localhost:15180")!

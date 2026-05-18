@@ -115,44 +115,43 @@ def get_messages(date: str = "") -> list[dict]:
     if not mailbox.exists():
         return []
     messages = []
+    import re
+    # 支持的格式:
+    # [2026-05-09 21:46] 角色(来源): 内容
+    # [21:46] 角色（来源）: 内容
+    # [2026-05-09 21:46] 角色: 内容
+    pattern = re.compile(
+        r'^\[(?:(\d{4}-\d{2}-\d{2}) )?(\d{1,2}:\d{2})\]'
+        r'\s*(.+?)[:：]\s*(.*)$'
+    )
     try:
         for line in mailbox.read_text(encoding="utf-8", errors="replace").strip().split("\n"):
             line = line.strip()
-            if not line:
+            if not line or not line.startswith("["):
                 continue
-            # 提取时间
-            time_str = ""
-            date_str = ""
-            if line.startswith("[") and "]" in line:
-                bracket = line[1:line.index("]")]
-                parts = bracket.split(" ")
-                if len(parts) >= 1:
-                    date_str = parts[0]
-                if len(parts) >= 2:
-                    time_str = parts[1][:5] if len(parts[1]) >= 5 else parts[1]
-            # 谁说的
-            speaker = ""
-            content = ""
-            if "旷野:" in line or "Claude:" in line:
-                speaker = "旷野"
-                content = line.split(": ", 1)[-1] if ": " in line else line
-            elif "用户:" in line or "用户：" in line:
-                speaker = "用户"
-                content = line.split(": ", 1)[-1] if ": " in line else line
-            elif "[安静时段" in line:
-                speaker = "旷野"
-                content = line.split("Claude: ", 1)[-1] if "Claude: " in line else line
-            else:
+            m = pattern.match(line)
+            if not m:
                 continue
-
+            date_str = m.group(1) or ""
+            time_str = m.group(2)
+            raw_speaker = m.group(3).strip()
+            content = m.group(4).strip()
+            # 提取纯角色名（去掉括号里的来源）
+            speaker = re.sub(r'[（(\(].*?[）)\)]', '', raw_speaker).strip()
+            if not speaker:
+                speaker = raw_speaker
+            # 只收录旷野和用户的发言
+            if speaker not in ("旷野", "用户", "Claude"):
+                continue
+            if speaker == "Claude":
+                speaker = "旷野"
             if date and date_str != date:
                 continue
-
             messages.append({
                 "date": date_str,
                 "time": time_str,
                 "speaker": speaker,
-                "content": content,
+                "content": content[:500],
             })
     except Exception:
         pass

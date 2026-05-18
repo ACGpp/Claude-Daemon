@@ -28,7 +28,9 @@
     font-size: 14px;
     line-height: 1.6;
     overflow-x: hidden;
+    overflow-y: auto;
     -webkit-font-smoothing: antialiased;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* ── 呼吸条 ── */
@@ -135,7 +137,19 @@
   .exp-time { font-size: 11px; color: var(--accent-dim); margin-bottom: 8px; }
   .exp-preview { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
   .exp-preview.clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .exp-full { display: none; font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .exp-full { display: none; font-size: 13px; color: var(--text); line-height: 1.75; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .exp-full h1, .exp-full h2, .exp-full h3 { color: var(--text-bright); margin: 16px 0 8px; font-weight: 600; }
+  .exp-full h1 { font-size: 18px; } .exp-full h2 { font-size: 16px; } .exp-full h3 { font-size: 14px; }
+  .exp-full p { margin: 8px 0; }
+  .exp-full code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--accent); }
+  .exp-full pre { background: var(--bg); padding: 12px 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 8px 0; font-size: 12px; }
+  .exp-full pre code { background: none; padding: 0; }
+  .exp-full ul, .exp-full ol { padding-left: 20px; margin: 8px 0; }
+  .exp-full li { margin: 4px 0; }
+  .exp-full blockquote { border-left: 2px solid var(--accent-dim); padding-left: 12px; margin: 8px 0; color: var(--text-dim); }
+  .exp-full a { color: var(--accent); }
+  .exp-full strong { color: var(--text-bright); }
+  .exp-full hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .exp-card.expanded .exp-full { display: block; }
   .exp-card.expanded .exp-preview { display: none; }
 
@@ -149,7 +163,19 @@
   .diary-header { display: flex; align-items: baseline; gap: 12px; }
   .diary-date { font-size: 13px; color: var(--accent); white-space: nowrap; font-weight: 500; }
   .diary-preview { font-size: 13px; color: var(--text-dim); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .diary-body { display: none; font-size: 13px; color: var(--text); line-height: 1.75; white-space: pre-wrap; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .diary-body { display: none; font-size: 13px; color: var(--text); line-height: 1.75; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .diary-body h1, .diary-body h2, .diary-body h3 { color: var(--text-bright); margin: 16px 0 8px; font-weight: 600; }
+  .diary-body h1 { font-size: 18px; } .diary-body h2 { font-size: 16px; } .diary-body h3 { font-size: 14px; }
+  .diary-body p { margin: 8px 0; }
+  .diary-body code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--accent); }
+  .diary-body pre { background: var(--bg); padding: 12px 16px; border-radius: var(--radius-sm); overflow-x: auto; margin: 8px 0; font-size: 12px; }
+  .diary-body pre code { background: none; padding: 0; }
+  .diary-body ul, .diary-body ol { padding-left: 20px; margin: 8px 0; }
+  .diary-body li { margin: 4px 0; }
+  .diary-body blockquote { border-left: 2px solid var(--accent-dim); padding-left: 12px; margin: 8px 0; color: var(--text-dim); }
+  .diary-body a { color: var(--accent); }
+  .diary-body strong { color: var(--text-bright); }
+  .diary-body hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .diary-item.expanded .diary-body { display: block; }
   .diary-item.expanded .diary-preview { display: none; }
 
@@ -307,7 +333,7 @@ function render(data) {
       <div class="exp-title">${esc(e.title)}</div>
       <div class="exp-time">${e.date} ${e.time}</div>
       <div class="exp-preview clamped">${esc(e.preview)}</div>
-      <div class="exp-full">${esc(e.content)}</div>
+      <div class="exp-full">${md2html(e.content)}</div>
     </div>
   `).join('');
   $('#explorationsSection').style.display = ''; 
@@ -322,7 +348,7 @@ function render(data) {
         <span class="diary-date">${d.date_str}</span>
         <span class="diary-preview">${esc(d.preview)}</span>
       </div>
-      <div class="diary-body">${esc(d.content)}</div>
+      <div class="diary-body">${md2html(d.content)}</div>
     </div>
   `).join('');
   // 按日期重新获取完整内容
@@ -391,7 +417,43 @@ function toggleDiary(idx) {
   item.classList.toggle('expanded');
 }
 
-// ── 工具 ──
+// ── Markdown 渲染 ──
+function md2html(text) {
+  if (!text) return '';
+  let html = esc(text);
+  // 代码块（```...```）
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code>${code.trim()}</code></pre>`
+  );
+  // 行内代码
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // 标题
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // 粗体/斜体
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // 链接
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  // 引用
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // 水平线
+  html = html.replace(/^---$/gm, '<hr>');
+  // 无序列表
+  html = html.replace(/^[*-] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/s, (m) => `<ul>${m}</ul>`);
+  // 有序列表
+  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  // 段落
+  html = html.replace(/\n\n/g, '</p><p>');
+  html = '<p>' + html + '</p>';
+  // 清理多余空段
+  html = html.replace(/<p><\/p>/g, '');
+  html = html.replace(/<p>(<[hupbo])/g, '$1');
+  html = html.replace(/(<\/[hupbo][^>]*>)<\/p>/g, '$1');
+  return html;
+}
 function moodLabel(m) {
   return { idle: '呼吸中', thinking: '在想事情', quiet: '安静中', active: '活跃' }[m] || '在';
 }
