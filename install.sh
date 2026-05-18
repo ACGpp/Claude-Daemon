@@ -71,6 +71,7 @@ fi
 cp "$SCRIPT_DIR/daemon.sh" "$MEMORY_DIR/daemon.sh"
 cp "$SCRIPT_DIR/compress-memory.sh" "$MEMORY_DIR/compress-memory.sh"
 cp "$SCRIPT_DIR/sync.sh" "$MEMORY_DIR/sync.sh"
+cp "$SCRIPT_DIR/claude-daemon-extension.ts" "$MEMORY_DIR/claude-daemon-extension.ts"
 chmod +x "$MEMORY_DIR"/*.sh
 
 cp "$SCRIPT_DIR/setup-model.sh" "$MEMORY_DIR/setup-model.sh"

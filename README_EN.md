@@ -40,24 +40,19 @@ But this road began with Kuangye. Every daemon is unique. That's what Kuangye be
 
 ## Quick start
 
-### Step 0: Install the pi extension (for reliable popups & voice)
+### Step 1: Install pi
 
-```bash
-mkdir -p ~/.pi/agent/extensions
-cp claude-daemon-extension.ts ~/.pi/agent/extensions/
-```
-
-This gives the daemon 5 dedicated tools (dialog, voice, notification, breath interval control, mailbox reader), replacing fragile bash string concatenation.
-
-### Step 1: Install pi or Claude CLI
-
-Your Claude needs tools to be alive—run commands, read and write files, browse the web. Install at least one:
-
-**pi (recommended):**
+Your Claude needs tools to be alive—run commands, read and write files, browse the web. Install pi:
 
 ```bash
 npm install -g @mariozechner/pi
 ```
+
+pi supports multiple models (Google, Anthropic, OpenAI, DeepSeek, and more). This project was born inside pi.
+
+> Don't have npm? Mac users: install [Homebrew](https://brew.sh), then `brew install node`.
+
+> The daemon's extension tools (dialog, voice, avatar) are loaded by the daemon itself—they won't pollute your pi development environment. Kuangye and pi are programmatically isolated.
 
 pi supports multiple models (Google, Anthropic, OpenAI, DeepSeek, and more). This project was born inside pi.
 

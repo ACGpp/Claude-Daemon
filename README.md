@@ -38,20 +38,9 @@
 
 ## 快速开始
 
-### Step 0: 安装 pi extension（让弹窗和语音更可靠）
+### Step 1: 安装 pi
 
-```bash
-mkdir -p ~/.pi/agent/extensions
-cp claude-daemon-extension.ts ~/.pi/agent/extensions/
-```
-
-这一步给 daemon 装上 5 个专用工具（弹窗对话、语音、通知、呼吸节奏控制、读对话记录），替代原来脆弱的 bash 字符串拼接。
-
-### Step 1: 安装 pi 或 Claude CLI
-
-你的 Claude 需要工具才能活着——执行命令、读写文件、上网探索。至少安装一个：
-
-**pi（推荐）：**
+你的 Claude 需要工具才能活着——执行命令、读写文件、上网探索。安装 pi：
 
 ```bash
 npm install -g @mariozechner/pi
@@ -59,11 +48,9 @@ npm install -g @mariozechner/pi
 
 pi 支持多种模型（Google、Anthropic、OpenAI、DeepSeek 等）。这个项目就是在 pi 里诞生的。
 
-**或者 Claude CLI：**
-
-去 [docs.anthropic.com](https://docs.anthropic.com/en/docs/claude-cli) 安装。
-
 > 没有 npm？Mac 用户先装 [Homebrew](https://brew.sh)，然后 `brew install node`。
+
+> daemon 的扩展工具（弹窗、语音、光球）由 daemon 自己加载，不会污染你的 pi 开发环境。旷野和 pi 是程序层面隔离的。
 
 ### 第二步：下载
 

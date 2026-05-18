@@ -158,7 +158,7 @@ run_llm() {
   if [ ! -f "$SESSION" ]; then
     # 新的一天：创建会话，设置系统 prompt
     local SYS_PROMPT=$(build_system_prompt)
-    $LLM_CMD --session "$SESSION" --append-system-prompt "$SYS_PROMPT" "$OBSERVATION" 2>> "$LOG_FILE"
+    $LLM_CMD --session "$SESSION" -e "$MEMORY_DIR/claude-daemon-extension.ts" --append-system-prompt "$SYS_PROMPT" "$OBSERVATION" 2>> "$LOG_FILE"
   else
     # 已有会话：直接继续
     $LLM_CMD --session "$SESSION" "$OBSERVATION" 2>> "$LOG_FILE"
