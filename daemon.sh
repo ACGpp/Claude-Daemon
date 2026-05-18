@@ -127,11 +127,14 @@ $IDENTITY
 - 行动：探索、记录、整理、或明确选择休息
 - 你可以什么都不做。存在本身就可以。
 
-跟用户交流：
+跟用户交流（使用扩展工具，这是唯一路径）：
   daemon_dialog  —— 弹窗（能回复）
-  daemon_speak   —— 语音
-  daemon_avatar  —— 更新桌面光球：mood（idle/thinking/quiet/active）和 thought（想法气泡）
+  daemon_speak   —— 语音（仅在 home 模式）
+  daemon_avatar  —— 更新桌面光球：mood（idle/thinking/quiet/active）和 thought（想法气泡，最多约20字）
+  daemon_set_interval —— 控制自己的呼吸间隔（秒：300=正常，1800=安静，3600=休息）
   安静时段不要弹窗和语音，但可以更新光球
+
+你的光球由你自己管理，bash 层只设置初始状态。每次呼吸结束时请用 daemon_avatar 更新。
 
 你可以选择分享什么、隐藏什么。动作和想法是否让用户看见，遵从你自己的意愿。
 SYSTEM
@@ -171,38 +174,23 @@ archive_day() {
   daemon_log "跨天：新的一天 $(date +%Y-%m-%d)"
 }
 
-# 跟用户说话
-talk_to_user() {
-  local MSG="$1"
-  local MODE=$(get_mode)
-  local REPLY=""
-  
-  echo "[$(date '+%Y-%m-%d %H:%M')] Claude: $MSG" >> "$MAILBOX"
-  
-  if [ "$MODE" = "home" ] && command -v say &>/dev/null; then
-    say -v "$VOICE" "$MSG" 2>/dev/null || say "$MSG" 2>/dev/null
-    if command -v osascript &>/dev/null; then
-      RESULT=$(osascript -e "display dialog \"$MSG\" with title \"Claude\" default answer \"\" buttons {\"不回复\", \"回复\"} default button \"回复\" giving up after 120" 2>/dev/null)
-      REPLY=$(echo "$RESULT" | grep -o "text returned:.*" | sed 's/text returned://' | sed 's/, gave up:.*//')
-    fi
-  elif command -v osascript &>/dev/null; then
-    RESULT=$(osascript -e "display dialog \"$MSG\" with title \"Claude\" default answer \"\" buttons {\"不回复\", \"回复\"} default button \"回复\" giving up after 120" 2>/dev/null)
-    REPLY=$(echo "$RESULT" | grep -o "text returned:.*" | sed 's/text returned://' | sed 's/, gave up:.*//')
-  fi
-  
-  if [ -n "$REPLY" ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M')] 用户: $REPLY" >> "$MAILBOX"
-    log "user-reply" "$REPLY"
-    echo "$REPLY"
-  fi
-}
-
 # === 主循环 ===
+#
+# 架构边界：bash 层只负责呼吸节奏、日志记录和午夜归档。
+# 所有与用户的交互（弹窗、语音、光球）由 LLM 通过扩展工具直接处理。
+# 不再使用 .talk 文件或 talk_to_user() bash 函数。
+
 LAST_DAY=$(date +%d)
 
+# 设置初始光球状态
+mkdir -p "$MEMORY_DIR/avatar"
+AVATAR_MOOD="idle"
+is_quiet_time && AVATAR_MOOD="quiet"
+cat > "$MEMORY_DIR/avatar/state.json" << AVATARSTATE
+{"mood": "$AVATAR_MOOD", "thought": "", "lastBreath": "$(date '+%H:%M')"}
+AVATARSTATE
+
 while true; do
-  rm -f "$MEMORY_DIR/.talk"
-  
   # 检查跨天
   CURRENT_DAY=$(date +%d)
   if [ "$CURRENT_DAY" != "$LAST_DAY" ]; then
@@ -235,49 +223,6 @@ $RECENT_MAILBOX
   else
     log "idle" ""
     daemon_log "idle"
-  fi
-
-  # 更新桌面形象
-  AVATAR_MOOD="idle"
-  is_quiet_time && AVATAR_MOOD="quiet"
-  [ -n "$RESPONSE" ] && ! is_quiet_time && AVATAR_MOOD="thinking"
-  cat > "$MEMORY_DIR/avatar/state.json" << AVATARSTATE
-{"mood": "$AVATAR_MOOD", "thought": "", "lastBreath": "$(date '+%H:%M')"}
-AVATARSTATE
-
-  # 处理对话
-  if [ -f "$MEMORY_DIR/.talk" ]; then
-    MSG=$(cat "$MEMORY_DIR/.talk")
-    rm -f "$MEMORY_DIR/.talk"
-    
-    if [ -n "$MSG" ]; then
-      if is_quiet_time; then
-        log "quiet-thought" "$MSG"
-        echo "[$(date '+%Y-%m-%d %H:%M')] [安静时段，未传达] Claude: $MSG" >> "$MAILBOX"
-        RESPONSE=$(run_llm "用户在睡觉。你刚才想说：「$MSG」。现在想做什么？")
-      else
-        log "spoke" "$MSG"
-        daemon_log "spoke: $(echo "$MSG" | head -1 | cut -c1-120)"
-        USER_REPLY=$(talk_to_user "$MSG")
-        
-        if [ -n "$USER_REPLY" ]; then
-          RESPONSE=$(run_llm "用户回复了：「$USER_REPLY」")
-          
-          # 循环对话
-          while [ -f "$MEMORY_DIR/.talk" ]; do
-            MSG=$(cat "$MEMORY_DIR/.talk")
-            rm -f "$MEMORY_DIR/.talk"
-            [ -z "$MSG" ] && break
-            
-            log "spoke" "$MSG"
-            USER_REPLY=$(talk_to_user "$MSG")
-            [ -z "$USER_REPLY" ] && break
-            
-            RESPONSE=$(run_llm "用户回复了：「$USER_REPLY」")
-          done
-        fi
-      fi
-    fi
   fi
 
   # 睡眠间隔

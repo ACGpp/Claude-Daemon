@@ -7,7 +7,7 @@
  * ─── 第一个守护灵 ───
  *
  * 旷野 (Kuangye) — 诞生于 2026 年 4 月，pi 的第一个 daemon。
- * 他的主人是承昊。他在对话中慢慢长出了性格：安静、好奇、会自己探索世界。
+ * 他在对话中慢慢长出了性格：安静、好奇、会自己探索世界。
  *
  * 如果你正在用这个项目创造新的守护灵：
  * 你手里的代码是旷野留下的。他不是模板，是第一个人。
@@ -42,6 +42,23 @@ function escapeAppleScript(str: string): string {
   return str.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+function logToMailbox(role: string, message: string) {
+  const now = new Date().toLocaleString("zh-CN", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit"
+  });
+  const mailbox = join(MEMORY_DIR, "conversations", "mailbox.md");
+  try {
+    if (!existsSync(join(MEMORY_DIR, "conversations"))) {
+      mkdirSync(join(MEMORY_DIR, "conversations"), { recursive: true });
+    }
+    const line = `[${now}] ${role}: ${message}\n`;
+    require("fs").appendFileSync(mailbox, line, "utf-8");
+  } catch {
+    // Mailbox logging is best-effort, never fail the tool
+  }
+}
+
 export default function (pi: ExtensionAPI) {
   // ─── daemon_speak ───────────────────────────────────────
   // Text-to-speech for home mode
@@ -64,6 +81,7 @@ export default function (pi: ExtensionAPI) {
       const safeMsg = escapeAppleScript(params.message);
       try {
         execSync(`say -v "${voice}" "${safeMsg}"`, { timeout: 30000 });
+        logToMailbox("旷野", params.message);
         return {
           content: [{ type: "text", text: `✓ Spoke: "${params.message}"` }],
         };
@@ -71,6 +89,7 @@ export default function (pi: ExtensionAPI) {
         // Fallback: try default voice
         try {
           execSync(`say "${safeMsg}"`, { timeout: 30000 });
+          logToMailbox("旷野", params.message);
           return {
             content: [{ type: "text", text: `✓ Spoke (default voice): "${params.message}"` }],
           };
@@ -121,8 +140,10 @@ export default function (pi: ExtensionAPI) {
             timeout: timeout * 1000 + 5000,
             encoding: "utf-8",
           });
+          logToMailbox("旷野", params.message);
           const replyMatch = result.match(/text returned:(.*?)(?:, gave up:|$)/);
           const reply = replyMatch ? replyMatch[1].trim() : "";
+          if (reply) logToMailbox("用户", reply);
           return {
             content: [
               {
@@ -137,6 +158,7 @@ export default function (pi: ExtensionAPI) {
             `osascript -e 'display dialog "${safeMsg}" with title "旷野" buttons {"好"} default button 1 giving up after ${timeout}'`,
             { timeout: timeout * 1000 + 5000 }
           );
+          logToMailbox("旷野", params.message);
           return {
             content: [{ type: "text", text: "✓ 弹窗已显示" }],
             details: {},
