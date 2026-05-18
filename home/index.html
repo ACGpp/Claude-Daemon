@@ -179,12 +179,12 @@
 
   <!-- 日期导航 -->
   <nav class="date-nav">
-    <button class="date-nav-btn" id="btnPrev" onclick="goDay(-1)">← 前一天</button>
+    <button class="date-nav-btn" id="btnPrev" onclick="goDay(1)">← 前一天</button>
     <div>
       <div class="date-display" id="dateDisplay"></div>
       <div class="date-today" id="dateLabel"></div>
     </div>
-    <button class="date-nav-btn" id="btnNext" onclick="goDay(1)">后一天 →</button>
+    <button class="date-nav-btn" id="btnNext" onclick="goDay(-1)">后一天 →</button>
   </nav>
 
   <!-- 头部 -->
@@ -262,7 +262,7 @@ function updateNav() {
   $('#dateDisplay').textContent = currentDate;
   $('#dateLabel').textContent = currentDate === today ? '今天' : '';
   const idx = availableDates.indexOf(currentDate);
-  $('#btnPrev').disabled = idx <= 0 || idx >= availableDates.length - 1;
+  $('#btnPrev').disabled = idx >= availableDates.length - 1;
   $('#btnNext').disabled = idx <= 0;
 }
 
@@ -377,7 +377,6 @@ async function sendChat(idx, event) {
     if (data.ok) {
       $(`#chatSent${idx}`).textContent = '✓ 已传达';
       input.value = '';
-      setTimeout(() => { $(`#chatBox${idx}`).classList.remove('open'); }, 1000);
     }
   } catch(e) {}
 }
@@ -406,8 +405,8 @@ function esc(s) {
 // ── 键盘 ──
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-  if (e.key === 'ArrowLeft' || e.key === 'h') goDay(-1);
-  if (e.key === 'ArrowRight' || e.key === 'l') goDay(1);
+  if (e.key === 'ArrowLeft' || e.key === 'h') goDay(1);
+  if (e.key === 'ArrowRight' || e.key === 'l') goDay(-1);
 });
 
 // ── 启动 ──
