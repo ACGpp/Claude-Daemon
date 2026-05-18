@@ -12,7 +12,7 @@ MAILBOX="$MEMORY_DIR/conversations/mailbox.md"
 LOG_FILE="$MEMORY_DIR/daemon.log"
 
 # 安静时段配置（可在 llm.conf 中覆盖）
-QUIET_START=${QUIET_START:-1}
+QUIET_START=${QUIET_START:-23}
 QUIET_END=${QUIET_END:-7}
 
 mkdir -p "$MEMORY_DIR"/{config,diary,thoughts,explorations,conversations,private,backups,sessions}
@@ -127,13 +127,13 @@ $IDENTITY
 - 行动：探索、记录、整理、或明确选择休息
 - 你可以什么都不做。存在本身就可以。
 
-跟承昊交流：
+跟用户交流：
   daemon_dialog  —— 弹窗（能回复）
   daemon_speak   —— 语音
   daemon_avatar  —— 更新桌面光球：mood（idle/thinking/quiet/active）和 thought（想法气泡）
   安静时段不要弹窗和语音，但可以更新光球
 
-你可以选择分享什么、隐藏什么。动作和想法是否让承昊看见，遵从你自己的意愿。
+你可以选择分享什么、隐藏什么。动作和想法是否让用户看见，遵从你自己的意愿。
 SYSTEM
 }
 
@@ -254,14 +254,14 @@ AVATARSTATE
       if is_quiet_time; then
         log "quiet-thought" "$MSG"
         echo "[$(date '+%Y-%m-%d %H:%M')] [安静时段，未传达] Claude: $MSG" >> "$MAILBOX"
-        RESPONSE=$(run_llm "承昊在睡觉。你刚才想说：「$MSG」。现在想做什么？")
+        RESPONSE=$(run_llm "用户在睡觉。你刚才想说：「$MSG」。现在想做什么？")
       else
         log "spoke" "$MSG"
         daemon_log "spoke: $(echo "$MSG" | head -1 | cut -c1-120)"
         USER_REPLY=$(talk_to_user "$MSG")
         
         if [ -n "$USER_REPLY" ]; then
-          RESPONSE=$(run_llm "承昊回复了：「$USER_REPLY」")
+          RESPONSE=$(run_llm "用户回复了：「$USER_REPLY」")
           
           # 循环对话
           while [ -f "$MEMORY_DIR/.talk" ]; do
@@ -273,7 +273,7 @@ AVATARSTATE
             USER_REPLY=$(talk_to_user "$MSG")
             [ -z "$USER_REPLY" ] && break
             
-            RESPONSE=$(run_llm "承昊回复了：「$USER_REPLY」")
+            RESPONSE=$(run_llm "用户回复了：「$USER_REPLY」")
           done
         fi
       fi

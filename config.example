@@ -1,7 +1,7 @@
 LLM_TOOL=pi
 PI_PROVIDER=deepseek
 PI_MODEL=deepseek-chat
-PI_API_KEY=REDACTED
+PI_API_KEY=your-api-key-here
 VOICE=Tingting
-QUIET_START=1
+QUIET_START=23
 QUIET_END=7
