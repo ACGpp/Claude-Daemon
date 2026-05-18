@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旷野</title>
+<style>
+  :root {
+    --bg: #0d0f12;
+    --surface: #15171d;
+    --surface-hover: #1a1d25;
+    --text: #c0c6d0;
+    --text-dim: #6a7080;
+    --text-bright: #e4e8f0;
+    --accent: #7b9cc8;
+    --accent-dim: #4a6080;
+    --glow-idle: #8cb4f033;
+    --glow-thinking: #c4a0f044;
+    --glow-quiet: #6078a020;
+    --glow-active: #a0d8c844;
+    --border: #222630;
+    --radius: 12px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Noto Sans SC", sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── 呼吸指示器 ── */
+  .breath-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    opacity: 0.4;
+    z-index: 100;
+  }
+  .breath-bar.idle { animation: breathIdle 4s ease-in-out infinite; }
+  .breath-bar.thinking { animation: breathThink 2s ease-in-out infinite; opacity: 0.7; }
+  .breath-bar.quiet { animation: breathIdle 8s ease-in-out infinite; opacity: 0.2; }
+  .breath-bar.active { opacity: 0.8; animation: breathThink 1.5s ease-in-out infinite; }
+
+  @keyframes breathIdle {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 0.45; }
+  }
+  @keyframes breathThink {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.75; }
+  }
+
+  /* ── 布局 ── */
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* ── 头部 ── */
+  .header {
+    text-align: center;
+    padding: 32px 0 40px;
+  }
+  .name {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-bright);
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+  .status-dot.breathing { animation: dotBreath 4s ease-in-out infinite; }
+  .status-dot.thinking { animation: dotBreath 2s ease-in-out infinite; background: #c4a0f0; }
+  .status-dot.quiet { animation: dotBreath 8s ease-in-out infinite; opacity: 0.3; }
+  @keyframes dotBreath {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.6); opacity: 1; }
+  }
+
+  .thought-bubble {
+    margin-top: 16px;
+    padding: 10px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 13px;
+    color: var(--text-dim);
+    display: inline-block;
+    max-width: 90%;
+    font-style: italic;
+  }
+  .thought-bubble:empty { display: none; }
+
+  /* ── 分区 ── */
+  .section {
+    margin-top: 36px;
+  }
+  .section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── 留言 ── */
+  .messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .message-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    font-size: 14px;
+    line-height: 1.65;
+    transition: background 0.2s;
+  }
+  .message-card:hover { background: var(--surface-hover); }
+  .message-time {
+    font-size: 11px;
+    color: var(--accent-dim);
+    margin-bottom: 4px;
+  }
+  .message-content {
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── 探索卡片 ── */
+  .explorations {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  @media (max-width: 500px) {
+    .explorations { grid-template-columns: 1fr; }
+  }
+
+  .exploration-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .exploration-card:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent-dim);
+  }
+  .exp-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }
+  .exp-time {
+    font-size: 11px;
+    color: var(--accent-dim);
+    margin-bottom: 8px;
+  }
+  .exp-preview {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ── 日记 ── */
+  .diary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .diary-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  .diary-entry:hover {
+    background: var(--surface-hover);
+    border-color: var(--accent-dim);
+  }
+  .diary-date {
+    font-size: 13px;
+    color: var(--accent);
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .diary-preview {
+    font-size: 13px;
+    color: var(--text-dim);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── 思维流 ── */
+  .thought-stream {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .thought-item {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+  .thought-time {
+    color: var(--accent-dim);
+    white-space: nowrap;
+    font-size: 11px;
+    min-width: 36px;
+  }
+  .thought-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── 弹窗 ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    max-width: 560px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .modal-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+  .modal-close {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+  .modal-close:hover { color: var(--text); border-color: var(--text-dim); }
+  .modal-content {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.75;
+    white-space: pre-wrap;
+  }
+
+  /* ── 空状态 ── */
+  .empty {
+    text-align: center;
+    padding: 32px 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-style: italic;
+  }
+
+  /* ── 底部 ── */
+  .footer {
+    text-align: center;
+    padding: 48px 0 32px;
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="breath-bar" id="breathBar"></div>
+
+<div class="container">
+
+  <!-- 头部 -->
+  <header class="header">
+    <div class="name">旷野</div>
+    <div class="subtitle">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">呼吸中</span>
+      <span id="lastBreath"></span>
+    </div>
+    <div class="thought-bubble" id="thoughtBubble"></div>
+  </header>
+
+  <!-- 留言 -->
+  <section class="section" id="messagesSection">
+    <div class="section-title">留给你的话</div>
+    <div class="messages" id="messagesList"></div>
+    <div class="empty" id="messagesEmpty">还没有留言</div>
+  </section>
+
+  <!-- 探索 -->
+  <section class="section" id="explorationsSection">
+    <div class="section-title">探索</div>
+    <div class="explorations" id="explorationsList"></div>
+    <div class="empty" id="explorationsEmpty">还没有探索笔记</div>
+  </section>
+
+  <!-- 日记 -->
+  <section class="section" id="diarySection">
+    <div class="section-title">日记</div>
+    <div class="diary-list" id="diaryList"></div>
+    <div class="empty" id="diaryEmpty">还没有日记</div>
+  </section>
+
+  <!-- 思维流 -->
+  <section class="section" id="thoughtsSection">
+    <div class="section-title">呼吸</div>
+    <div class="thought-stream" id="thoughtsList"></div>
+    <div class="empty" id="thoughtsEmpty">还没有思绪记录</div>
+  </section>
+
+  <footer class="footer">诞生于 2026 年 4 月 · pi 的第一个守护灵</footer>
+</div>
+
+<!-- 弹窗 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" onclick="closeModal()">关闭</button>
+    </div>
+    <div class="modal-content" id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+
+// ── 状态更新 ──
+async function refresh() {
+  try {
+    const resp = await fetch('/api/state');
+    const data = await resp.json();
+    render(data);
+  } catch (e) {
+    // 静默失败，下次刷新会重试
+  }
+}
+
+function moodLabel(mood) {
+  return { idle: '呼吸中', thinking: '在想事情', quiet: '安静中', active: '活跃' }[mood] || '在';
+}
+function moodClass(mood) {
+  return { idle: 'breathing', thinking: 'thinking', quiet: 'quiet', active: 'breathing' }[mood] || 'breathing';
+}
+
+function render(data) {
+  const av = data.avatar || {};
+  // 呼吸条
+  const bar = $('#breathBar');
+  bar.className = 'breath-bar ' + (av.mood || 'idle');
+
+  // 状态
+  const dot = $('#statusDot');
+  dot.className = 'status-dot ' + moodClass(av.mood);
+  $('#statusText').textContent = moodLabel(av.mood);
+  $('#lastBreath').textContent = av.lastBreath ? '· ' + av.lastBreath : '';
+
+  // 气泡
+  const bubble = $('#thoughtBubble');
+  bubble.textContent = av.thought || '';
+
+  // 留言
+  const msgs = data.messages || [];
+  $('#messagesList').innerHTML = msgs.slice().reverse().map(m =>
+    `<div class="message-card">
+      ${m.time ? `<div class="message-time">${m.time}</div>` : ''}
+      <div class="message-content">${esc(m.content)}</div>
+    </div>`
+  ).join('');
+  $('#messagesSection').style.display = msgs.length ? '' : 'none';
+  $('#messagesEmpty').style.display = msgs.length ? 'none' : '';
+
+  // 探索
+  const exps = data.explorations || [];
+  $('#explorationsList').innerHTML = exps.map(e =>
+    `<a class="exploration-card" href="#" onclick="openExploration('${escAttr(e.file)}', '${escAttr(e.title)}'); return false">
+      <div class="exp-title">${esc(e.title)}</div>
+      <div class="exp-time">${e.time}</div>
+      <div class="exp-preview">${esc(e.preview)}</div>
+    </a>`
+  ).join('');
+  $('#explorationsSection').style.display = exps.length ? '' : 'none';
+  $('#explorationsEmpty').style.display = exps.length ? 'none' : '';
+
+  // 日记
+  const diary = data.diary || [];
+  $('#diaryList').innerHTML = diary.map(d =>
+    `<div class="diary-entry" onclick="openDiary('${escAttr(d.date)}')">
+      <span class="diary-date">${d.date}</span>
+      <span class="diary-preview">${esc(d.preview)}</span>
+    </div>`
+  ).join('');
+  $('#diarySection').style.display = diary.length ? '' : 'none';
+  $('#diaryEmpty').style.display = diary.length ? 'none' : '';
+
+  // 思维流
+  const thoughts = data.thoughts || [];
+  $('#thoughtsList').innerHTML = thoughts.slice().reverse().map(t => {
+    let time = '';
+    if (t.time) {
+      try {
+        const d = new Date(t.time);
+        time = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      } catch (e) { time = ''; }
+    }
+    const typeMap = { breath: '🌬', idle: '💤', spoke: '💬', 'user-reply': '👤', 'quiet-thought': '🌙' };
+    const icon = typeMap[t.type] || '·';
+    const content = (t.content || '').substring(0, 100);
+    return `<div class="thought-item">
+      <span class="thought-time">${time}</span>
+      <span class="thought-text">${icon} ${esc(content)}</span>
+    </div>`;
+  }).join('');
+  $('#thoughtsSection').style.display = thoughts.length ? '' : 'none';
+  $('#thoughtsEmpty').style.display = thoughts.length ? 'none' : '';
+}
+
+async function openExploration(file, title) {
+  try {
+    const resp = await fetch('/api/exploration?file=' + encodeURIComponent(file));
+    const data = await resp.json();
+    $('#modalTitle').textContent = title || data.file;
+    $('#modalContent').textContent = data.content || '';
+    $('#modal').classList.add('open');
+  } catch (e) {}
+}
+
+async function openDiary(date) {
+  try {
+    const resp = await fetch('/api/diary?date=' + encodeURIComponent(date));
+    const data = await resp.json();
+    $('#modalTitle').textContent = '日记 · ' + date;
+    $('#modalContent').textContent = data.content || '';
+    $('#modal').classList.add('open');
+  } catch (e) {}
+}
+
+function closeModal() { $('#modal').classList.remove('open'); }
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function escAttr(s) {
+  return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+$('#modal').addEventListener('click', (e) => {
+  if (e.target === $('#modal')) closeModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// 初次加载
+refresh();
+// 每 10 秒刷新
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>
