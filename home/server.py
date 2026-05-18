@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""旷野的家 — 一个轻量桌面窗口。
+"""旷野的家 — 后端 API。
 
-读取 ~/.claude-memory/ 的数据，呈现在一个安静的网页仪表盘上。
-用 Python http.server 提供静态文件 + API。
-窗口由 osascript 创建（macOS 原生 WebKit 边框窗）。
+按天提供数据：思维流、探索、日记、留言。
+支持 POST /api/chat 让用户直接回复。
 """
 
 import http.server
@@ -14,22 +13,15 @@ import sys
 import threading
 import time
 import webbrowser
+from datetime import datetime, timedelta
 from pathlib import Path
 
 MEMORY = Path.home() / ".claude-memory"
 HOME = Path(__file__).resolve().parent
-PORT = 15180  # 旷野之家
-
-# ── 数据读取 ──────────────────────────────────────────────
-
-
-def sanitize(s: str) -> str:
-    """移除无法编码为 UTF-8 的 surrogate 字符。"""
-    return s.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
+PORT = 15180
 
 
 def read_file(path: Path, tail: int = 0) -> str:
-    """安全读文件，tail>0 时读最后 N 行。"""
     if not path.exists():
         return ""
     try:
@@ -43,13 +35,12 @@ def read_file(path: Path, tail: int = 0) -> str:
         return ""
 
 
-def parse_jsonl(path: Path, limit: int = 40) -> list[dict]:
-    """解析 JSONL 思维流，返回最近 N 条。"""
+def parse_jsonl(path: Path) -> list[dict]:
     if not path.exists():
         return []
     items = []
     try:
-        for line in path.read_text(encoding="utf-8").strip().split("\n"):
+        for line in path.read_text(encoding="utf-8", errors="replace").strip().split("\n"):
             if line.strip():
                 try:
                     items.append(json.loads(line))
@@ -57,104 +48,203 @@ def parse_jsonl(path: Path, limit: int = 40) -> list[dict]:
                     pass
     except Exception:
         pass
-    return items[-limit:]
+    return items
+
+
+def filter_by_date(items: list[dict], date: str) -> list[dict]:
+    """按 ISO 日期过滤 JSONL 条目。"""
+    result = []
+    for item in items:
+        t = item.get("time", "")
+        if t and t[:10] == date:
+            result.append(item)
+    return result
 
 
 def get_avatar_state() -> dict:
-    """读取光球状态。"""
     path = MEMORY / "avatar" / "state.json"
     if path.exists():
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            return json.loads(path.read_text(encoding="utf-8", errors="replace"))
         except Exception:
             pass
     return {"mood": "idle", "thought": "", "lastBreath": "??:??"}
 
 
-def get_explorations() -> list[dict]:
-    """读取探索笔记列表。"""
+def get_explorations(date: str = "") -> list[dict]:
     exp_dir = MEMORY / "explorations"
     if not exp_dir.exists():
         return []
     entries = []
     for f in sorted(exp_dir.glob("*.md"), key=os.path.getmtime, reverse=True):
-        content = read_file(f)[:1200]
-        title = f.stem.replace("-", " ").replace("_", " ")
+        mtime = datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d")
+        if date and mtime != date:
+            continue
+        content = read_file(f)[:5000]
         entries.append({
-            "title": title,
+            "title": f.stem.replace("-", " ").replace("_", " "),
             "file": f.name,
-            "preview": content[:200].replace("\n", " "),
+            "preview": content[:150].replace("\n", " "),
             "content": content,
-            "time": time.strftime("%m-%d %H:%M", time.localtime(f.stat().st_mtime)),
+            "date": mtime,
+            "time": datetime.fromtimestamp(f.stat().st_mtime).strftime("%H:%M"),
         })
     return entries
 
 
-def get_diary_entries() -> list[dict]:
-    """读取日记列表。"""
+def get_diary(date: str = "") -> list[dict]:
     diary_dir = MEMORY / "diary"
     if not diary_dir.exists():
         return []
     entries = []
-    for f in sorted(diary_dir.glob("*.md"), key=os.path.getmtime, reverse=True)[:7]:
-        content = read_file(f)[:3000]
+    pattern = f"{date}.md" if date else "*.md"
+    for f in sorted(diary_dir.glob(pattern), key=os.path.getmtime, reverse=True):
+        if f.stem == "compressed-memories":
+            continue
+        content = read_file(f)[:5000]
         entries.append({
-            "date": f.stem,
-            "preview": content[:250].replace("\n", " "),
+            "date_str": f.stem,
+            "preview": content[:200].replace("\n", " "),
             "content": content,
         })
     return entries
 
 
-def get_messages() -> list[dict]:
-    """读取我留给用户的留言（从 mailbox 中提取 旷野 的发言）。"""
+def get_messages(date: str = "") -> list[dict]:
     mailbox = MEMORY / "conversations" / "mailbox.md"
     if not mailbox.exists():
         return []
     messages = []
     try:
-        for line in mailbox.read_text(encoding="utf-8").strip().split("\n"):
+        for line in mailbox.read_text(encoding="utf-8", errors="replace").strip().split("\n"):
             line = line.strip()
             if not line:
                 continue
+            # 提取时间
+            time_str = ""
+            date_str = ""
+            if line.startswith("[") and "]" in line:
+                bracket = line[1:line.index("]")]
+                parts = bracket.split(" ")
+                if len(parts) >= 1:
+                    date_str = parts[0]
+                if len(parts) >= 2:
+                    time_str = parts[1][:5] if len(parts[1]) >= 5 else parts[1]
+            # 谁说的
+            speaker = ""
+            content = ""
             if "旷野:" in line or "Claude:" in line:
-                # 格式: [日期 时间] 旷野: 内容
-                time_str = line[1:17] if line.startswith("[") else ""
+                speaker = "旷野"
                 content = line.split(": ", 1)[-1] if ": " in line else line
-                messages.append({"time": time_str, "content": content})
+            elif "用户:" in line or "用户：" in line:
+                speaker = "用户"
+                content = line.split(": ", 1)[-1] if ": " in line else line
+            elif "[安静时段" in line:
+                speaker = "旷野"
+                content = line.split("Claude: ", 1)[-1] if "Claude: " in line else line
+            else:
+                continue
+
+            if date and date_str != date:
+                continue
+
+            messages.append({
+                "date": date_str,
+                "time": time_str,
+                "speaker": speaker,
+                "content": content,
+            })
     except Exception:
         pass
-    return messages[-20:]
+    return messages
 
 
-# ── API 端点 ──────────────────────────────────────────────
+def get_available_dates() -> list[str]:
+    """收集所有有数据的日期。"""
+    dates = set()
+
+    # 思维流
+    for item in parse_jsonl(MEMORY / "thoughts" / "stream.jsonl"):
+        t = item.get("time", "")
+        if t and len(t) >= 10:
+            dates.add(t[:10])
+
+    # 探索
+    exp_dir = MEMORY / "explorations"
+    if exp_dir.exists():
+        for f in exp_dir.glob("*.md"):
+            dates.add(datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d"))
+
+    # 日记
+    diary_dir = MEMORY / "diary"
+    if diary_dir.exists():
+        for f in diary_dir.glob("*.md"):
+            if f.stem != "compressed-memories" and len(f.stem) == 10:
+                dates.add(f.stem)
+
+    # 对话
+    mailbox = MEMORY / "conversations" / "mailbox.md"
+    if mailbox.exists():
+        try:
+            for line in mailbox.read_text(encoding="utf-8", errors="replace").split("\n"):
+                if line.startswith("[20") and "]" in line:
+                    d = line[1:11]
+                    if len(d) == 10 and d.startswith("20"):
+                        dates.add(d)
+        except Exception:
+            pass
+
+    return sorted(dates, reverse=True)
+
+
+def write_chat_message(message: str):
+    """用户通过家给我留言。"""
+    mailbox = MEMORY / "conversations" / "mailbox.md"
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    line = f"[{now}] 用户: {message}\n"
+    try:
+        if not mailbox.parent.exists():
+            mailbox.parent.mkdir(parents=True, exist_ok=True)
+        with open(mailbox, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception:
+        pass
+
+
+# ── API ───────────────────────────────────────────────────
 
 
 class APIHandler(http.server.SimpleHTTPRequestHandler):
-    """处理静态文件 + JSON API。"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(HOME), **kwargs)
 
     def do_GET(self):
-        if self.path == "/api/state":
+        if self.path.startswith("/api/state"):
+            date = self._query("date", "")
+            all_thoughts = parse_jsonl(MEMORY / "thoughts" / "stream.jsonl")
+            thoughts = filter_by_date(all_thoughts, date) if date else all_thoughts[-40:]
+
             self._json({
+                "date": date or datetime.now().strftime("%Y-%m-%d"),
+                "dates": get_available_dates(),
                 "avatar": get_avatar_state(),
-                "thoughts": parse_jsonl(MEMORY / "thoughts" / "stream.jsonl", 30),
-                "explorations": get_explorations()[:8],
-                "diary": get_diary_entries(),
-                "messages": get_messages(),
-                "identity": read_file(MEMORY / "identity.md")[:800],
-                "working_memory": read_file(MEMORY / "context" / "working-memory.md")[:2000],
+                "thoughts": thoughts,
+                "explorations": get_explorations(date),
+                "diary": get_diary(date),
+                "messages": get_messages(date),
+                "identity": read_file(MEMORY / "identity.md")[:500],
             })
-        elif self.path == "/api/exploration":
+        elif self.path.startswith("/api/dates"):
+            self._json({"dates": get_available_dates()})
+        elif self.path.startswith("/api/exploration"):
             file = self._query("file", "")
             if file:
                 content = read_file(MEMORY / "explorations" / file)
                 self._json({"file": file, "content": content})
             else:
                 self._json({"error": "missing file"}, 400)
-        elif self.path == "/api/diary":
+        elif self.path.startswith("/api/diary"):
             date = self._query("date", "")
             if date:
                 content = read_file(MEMORY / "diary" / f"{date}.md")
@@ -166,8 +256,24 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def do_POST(self):
+        if self.path == "/api/chat":
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length).decode("utf-8", errors="replace")
+            try:
+                data = json.loads(body)
+                msg = data.get("message", "").strip()
+                if msg:
+                    write_chat_message(msg)
+                    self._json({"ok": True, "reply": "已传达给旷野"})
+                else:
+                    self._json({"ok": False, "error": "消息为空"}, 400)
+            except json.JSONDecodeError:
+                self._json({"ok": False, "error": "无效的 JSON"}, 400)
+        else:
+            self._json({"error": "not found"}, 404)
+
     def _json(self, data: dict, code: int = 200):
-        # sanitize 已在 read_file 中处理，此处防御性回退
         try:
             body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
         except (UnicodeEncodeError, UnicodeDecodeError):
@@ -186,15 +292,15 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
         return params.get(key, [default])[0]
 
     def log_message(self, format, *args):
-        pass  # 安静
+        pass
+
+
+# ── 窗口 ──────────────────────────────────────────────────
 
 
 def open_window():
-    """用原生 Swift WKWebView 窗口打开。"""
     app_path = HOME / "App.swift"
     if not app_path.exists():
-        # 回退到 Safari
-        import webbrowser
         webbrowser.open(f"http://localhost:{PORT}")
         return
     try:
@@ -204,13 +310,10 @@ def open_window():
             stderr=subprocess.DEVNULL,
         )
     except Exception:
-        import webbrowser
         webbrowser.open(f"http://localhost:{PORT}")
 
 
 def start():
-    """启动服务器和窗口。"""
-    # 启动 HTTP 服务
     server = http.server.HTTPServer(("127.0.0.1", PORT), APIHandler)
 
     def serve():
@@ -219,8 +322,6 @@ def start():
 
     t = threading.Thread(target=serve, daemon=True)
     t.start()
-
-    # 等服务器就绪后打开窗口
     time.sleep(0.5)
     open_window()
 
