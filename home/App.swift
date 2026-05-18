@@ -14,9 +14,12 @@ let window = NSWindow(
 )
 window.title = "旷野"
 window.titlebarAppearsTransparent = true
-window.isMovableByWindowBackground = true
+window.isMovableByWindowBackground = false
 window.backgroundColor = NSColor(red: 0.051, green: 0.059, blue: 0.071, alpha: 1.0)
 window.minSize = NSSize(width: 400, height: 500)
+
+// 暗色标题栏外观
+window.appearance = NSAppearance(named: .darkAqua)
 
 let webView = WKWebView(frame: window.contentView!.bounds)
 webView.autoresizingMask = [.width, .height]

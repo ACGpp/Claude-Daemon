@@ -23,15 +23,22 @@ PORT = 15180  # 旷野之家
 # ── 数据读取 ──────────────────────────────────────────────
 
 
+def sanitize(s: str) -> str:
+    """移除无法编码为 UTF-8 的 surrogate 字符。"""
+    return s.encode("utf-8", errors="surrogateescape").decode("utf-8", errors="replace")
+
+
 def read_file(path: Path, tail: int = 0) -> str:
     """安全读文件，tail>0 时读最后 N 行。"""
     if not path.exists():
         return ""
     try:
+        raw = path.read_bytes()
+        text = raw.decode("utf-8", errors="replace")
         if tail > 0:
-            lines = path.read_text(encoding="utf-8").strip().split("\n")
+            lines = text.strip().split("\n")
             return "\n".join(lines[-tail:])
-        return path.read_text(encoding="utf-8")
+        return text
     except Exception:
         return ""
 
@@ -160,7 +167,11 @@ class APIHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def _json(self, data: dict, code: int = 200):
-        body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        # sanitize 已在 read_file 中处理，此处防御性回退
+        try:
+            body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            body = json.dumps(data, ensure_ascii=True, indent=2).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Access-Control-Allow-Origin", "*")
