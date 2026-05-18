@@ -266,6 +266,13 @@ async function load(date) {
 }
 
 // ── 渲染 ──
+function toChinaTime(isoStr) {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit', timeZone:'Asia/Shanghai' });
+  } catch(e) { return isoStr.slice(11, 16); }
+}
 function render(data) {
   if (!data) return;
   const av = data.avatar || {};
@@ -331,7 +338,7 @@ function render(data) {
   $('#thoughtCount').textContent = thoughts.length ? String(thoughts.length) : '';
   const icons = { breath:'🌬', idle:'💤', spoke:'💬', 'user-reply':'👤', 'quiet-thought':'🌙' };
   $('#thoughtsList').innerHTML = thoughts.slice().reverse().map(t => {
-    const time = (t.time || '').slice(11, 16);
+    const time = toChinaTime(t.time);
     const icon = icons[t.type] || '·';
     const content = (t.content || '').slice(0, 120);
     return `<div class="thought-item">

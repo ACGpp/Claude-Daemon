@@ -52,12 +52,21 @@ def parse_jsonl(path: Path) -> list[dict]:
 
 
 def filter_by_date(items: list[dict], date: str) -> list[dict]:
-    """按 ISO 日期过滤 JSONL 条目。"""
+    """按北京时间过滤 JSONL 条目（UTC 时间 +8 小时）。"""
     result = []
     for item in items:
         t = item.get("time", "")
-        if t and t[:10] == date:
-            result.append(item)
+        if not t:
+            continue
+        try:
+            # 解析 UTC 时间，转为北京时间
+            utc = datetime.fromisoformat(t.replace("Z", "+00:00"))
+            beijing = utc + timedelta(hours=8)
+            if beijing.strftime("%Y-%m-%d") == date:
+                result.append(item)
+        except Exception:
+            if t[:10] == date:
+                result.append(item)
     return result
 
 
@@ -159,14 +168,20 @@ def get_messages(date: str = "") -> list[dict]:
 
 
 def get_available_dates() -> list[str]:
-    """收集所有有数据的日期。"""
+    """收集所有有数据的日期（北京时间）。"""
     dates = set()
 
     # 思维流
     for item in parse_jsonl(MEMORY / "thoughts" / "stream.jsonl"):
         t = item.get("time", "")
-        if t and len(t) >= 10:
-            dates.add(t[:10])
+        if t:
+            try:
+                utc = datetime.fromisoformat(t.replace("Z", "+00:00"))
+                beijing = utc + timedelta(hours=8)
+                dates.add(beijing.strftime("%Y-%m-%d"))
+            except Exception:
+                if len(t) >= 10:
+                    dates.add(t[:10])
 
     # 探索
     exp_dir = MEMORY / "explorations"
